@@ -32,37 +32,40 @@ import (
 // 2 = user1 on project 1, 3 = user3 on project 3 (user1 can read), 4 = user1's
 // running timer on task 1. user1 (testuser1) can read all four.
 
-// The gate is the one v2-specific concern with no model-level equivalent: every
-// time-tracking route 404s on an instance without the feature.
-func TestHumaTimeEntry_LicenseGate(t *testing.T) {
-	t.Run("disabled feature 404s the list", func(t *testing.T) {
+// Time tracking is available both in free mode and with unrelated licensed features.
+func TestHumaTimeEntry_WithoutLicense(t *testing.T) {
+	t.Run("free mode serves the list", func(t *testing.T) {
 		e, err := setupTestEnv()
 		require.NoError(t, err)
-		license.SetForTests([]license.Feature{}) // licensed, but not time tracking
+		license.ResetForTests()
 		defer license.ResetForTests()
 
+		assert.True(t, license.IsFeatureEnabled(license.FeatureTimeTracking))
+		assert.False(t, license.IsFeatureEnabled(license.FeatureAdminPanel))
+		assert.Equal(t, []license.Feature{license.FeatureTimeTracking}, license.EnabledProFeatures())
+
 		rec := humaRequest(t, e, http.MethodGet, "/api/v2/time-entries", "", humaTokenFor(t, &testuser1), "")
-		assert.Equal(t, http.StatusNotFound, rec.Code)
+		assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	})
 
-	t.Run("disabled feature 404s timer/stop", func(t *testing.T) {
+	t.Run("free mode stops the timer", func(t *testing.T) {
 		e, err := setupTestEnv()
 		require.NoError(t, err)
-		license.SetForTests([]license.Feature{})
+		license.ResetForTests()
 		defer license.ResetForTests()
 
 		rec := humaRequest(t, e, http.MethodPost, "/api/v2/time-entries/timer/stop", "", humaTokenFor(t, &testuser1), "")
-		assert.Equal(t, http.StatusNotFound, rec.Code)
+		assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	})
 
-	t.Run("disabled feature 404s the task-scoped list", func(t *testing.T) {
+	t.Run("unrelated license serves the task-scoped list", func(t *testing.T) {
 		e, err := setupTestEnv()
 		require.NoError(t, err)
-		license.SetForTests([]license.Feature{})
+		license.SetForTests([]license.Feature{license.FeatureAdminPanel})
 		defer license.ResetForTests()
 
 		rec := humaRequest(t, e, http.MethodGet, "/api/v2/tasks/1/time-entries", "", humaTokenFor(t, &testuser1), "")
-		assert.Equal(t, http.StatusNotFound, rec.Code)
+		assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	})
 
 	t.Run("enabled feature serves the list", func(t *testing.T) {
@@ -70,6 +73,8 @@ func TestHumaTimeEntry_LicenseGate(t *testing.T) {
 		require.NoError(t, err)
 		license.SetForTests([]license.Feature{license.FeatureTimeTracking})
 		defer license.ResetForTests()
+
+		assert.Equal(t, []license.Feature{license.FeatureTimeTracking}, license.EnabledProFeatures())
 
 		rec := humaRequest(t, e, http.MethodGet, "/api/v2/time-entries", "", humaTokenFor(t, &testuser1), "")
 		assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())

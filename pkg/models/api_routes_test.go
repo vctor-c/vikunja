@@ -183,10 +183,8 @@ func TestGetAPITokenRoutes_ExposesV2Only(t *testing.T) {
 	assert.False(t, v1HasTE, "the merge must not mutate the v1 table")
 }
 
-// TestGetAPITokenRoutes_LicenseFilter verifies the /routes payload omits
-// routes whose license feature is off — including licensed permissions nested
-// inside always-available groups (tasks.time_entries) — while validation and
-// authorisation of existing tokens stay unfiltered.
+// TestGetAPITokenRoutes_LicenseFilter verifies that licensed routes remain hidden
+// in free mode while time tracking and its token permissions remain available.
 func TestGetAPITokenRoutes_LicenseFilter(t *testing.T) {
 	resetAPITokenRoutes(t)
 
@@ -202,13 +200,12 @@ func TestGetAPITokenRoutes_LicenseFilter(t *testing.T) {
 
 		assert.Contains(t, routes, "labels")
 		assert.NotContains(t, routes, "admin")
-		assert.NotContains(t, routes, "time_entries")
+		assert.Contains(t, routes, "time_entries")
 		require.Contains(t, routes, "tasks")
 		assert.Contains(t, routes["tasks"], "read_all")
-		assert.NotContains(t, routes["tasks"], "time_entries")
+		assert.Contains(t, routes["tasks"], "time_entries")
 
-		// Existing tokens with gated scopes must keep validating — the
-		// request-time gates already make them inert.
+		// Existing time-tracking tokens remain valid without a license.
 		perms := APIPermissions{"time_entries": []string{"read_all"}}
 		assert.NoError(t, PermissionsAreValid(perms))
 	})

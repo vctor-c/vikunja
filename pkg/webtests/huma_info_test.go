@@ -41,6 +41,7 @@ func TestHumaInfo(t *testing.T) {
 	assert.Contains(t, body, "version")
 	assert.Contains(t, body, "auth")
 	assert.Contains(t, body, "available_migrators")
+	assert.Equal(t, []any{"time_tracking"}, body["enabled_pro_features"])
 
 	require.Contains(t, body, "concurrent_writes")
 	assert.Equal(t, config.DatabaseType.GetString() != "sqlite", body["concurrent_writes"])

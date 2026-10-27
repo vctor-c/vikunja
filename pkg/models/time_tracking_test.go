@@ -847,15 +847,16 @@ func TestTimeEntry_TaskCount(t *testing.T) {
 		assert.Nil(t, task1.TimeEntriesCount, "link shares must not learn time-entry counts")
 	})
 
-	t.Run("leaves the count unset when the feature is unlicensed", func(t *testing.T) {
+	t.Run("attaches counts without a license", func(t *testing.T) {
 		db.LoadAndAssertFixtures(t)
 		s := db.NewSession()
 		defer s.Close()
-		license.ResetForTests() // feature disabled
+		license.ResetForTests() // free mode
 
 		task1 := &Task{ID: 1}
 		taskMap := map[int64]*Task{1: task1}
 		require.NoError(t, addTimeEntriesCountToTasks(s, u, []int64{1}, taskMap))
-		assert.Nil(t, task1.TimeEntriesCount, "an unlicensed instance must not expose counts")
+		require.NotNil(t, task1.TimeEntriesCount)
+		assert.Equal(t, int64(2), *task1.TimeEntriesCount)
 	})
 }
