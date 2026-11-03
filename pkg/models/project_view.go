@@ -178,6 +178,9 @@ type ProjectView struct {
 	// If tasks are moved to the done bucket, they are marked as done. If they are marked as done individually, they are moved into the done bucket.
 	DoneBucketID int64 `xorm:"bigint INDEX null" json:"done_bucket_id" doc:"The id of the done bucket. Tasks moved here are marked done, and tasks marked done are moved here."`
 
+	// Moving a task here starts the moving user's timer. Zero disables automatic time tracking.
+	InProgressBucketID int64 `xorm:"bigint INDEX null" json:"in_progress_bucket_id" doc:"The bucket that starts the moving user's timer. Zero disables automation. Moving to the done bucket stops that user's timer for the task. Must differ from the done bucket."`
+
 	// A timestamp when this view was updated. You cannot change this value.
 	Updated time.Time `xorm:"updated not null" json:"updated" readOnly:"true" doc:"A timestamp when this view was last updated. You cannot change this value."`
 	// A timestamp when this reaction was created. You cannot change this value.
@@ -383,7 +386,17 @@ func resolveBucketIDs(s *xorm.Session, p, oldView *ProjectView) (err error) {
 	}
 
 	p.DoneBucketID, err = resolveBucketID(s, p.ID, p.DoneBucketID, oldView.DoneBucketID)
-	return err
+	if err != nil {
+		return err
+	}
+	p.InProgressBucketID, err = resolveBucketID(s, p.ID, p.InProgressBucketID, oldView.InProgressBucketID)
+	if err != nil {
+		return err
+	}
+	if p.InProgressBucketID != 0 && p.InProgressBucketID == p.DoneBucketID {
+		return InvalidFieldErrorWithMessage([]string{"in_progress_bucket_id"}, "The in-progress bucket must differ from the done bucket.")
+	}
+	return nil
 }
 
 func resolveBucketID(s *xorm.Session, viewID, incomingID, storedID int64) (int64, error) {
@@ -432,6 +445,7 @@ func createProjectView(s *xorm.Session, p *ProjectView, a web.Auth, createBacklo
 	// No bucket can belong to a view which does not exist yet.
 	p.DefaultBucketID = 0
 	p.DoneBucketID = 0
+	p.InProgressBucketID = 0
 	_, err = s.Insert(p)
 	if err != nil {
 		return
@@ -490,7 +504,7 @@ func createDefaultKanbanBuckets(s *xorm.Session, a web.Auth, p *ProjectView, add
 
 	p.DefaultBucketID = backlog.ID
 	p.DoneBucketID = done.ID
-	_, err = s.ID(p.ID).Cols("default_bucket_id", "done_bucket_id").Update(p)
+	_, err = s.ID(p.ID).Cols("default_bucket_id", "done_bucket_id", "in_progress_bucket_id").Update(p)
 	if err != nil {
 		return
 	}
@@ -681,7 +695,7 @@ func (pv *ProjectView) Update(s *xorm.Session, a web.Auth) (err error) {
 	// A view without buckets has no business writing bucket ids - keeping the
 	// stored ones is what lets healBucketIDs restore them on the way back.
 	if pv.ViewKind == ProjectViewKindKanban {
-		cols = append(cols, "default_bucket_id", "done_bucket_id")
+		cols = append(cols, "default_bucket_id", "done_bucket_id", "in_progress_bucket_id")
 	}
 
 	_, err = s.
@@ -731,7 +745,7 @@ func syncManualKanbanBuckets(s *xorm.Session, a web.Auth, pv, oldView *ProjectVi
 	return RecalculateTaskPositions(s, pv, a)
 }
 
-// Clients may omit both ids, restore them from the previous state unless the
+// Clients may omit bucket ids, restore them from the previous state unless the
 // bucket is gone by now.
 func healBucketIDs(s *xorm.Session, pv, oldView *ProjectView) (err error) {
 	if pv.DefaultBucketID == 0 {
@@ -753,7 +767,14 @@ func healBucketIDs(s *xorm.Session, pv, oldView *ProjectView) (err error) {
 		}
 	}
 
-	_, err = s.ID(pv.ID).Cols("default_bucket_id", "done_bucket_id").Update(pv)
+	if pv.InProgressBucketID == 0 && oldView.InProgressBucketID != pv.DoneBucketID {
+		pv.InProgressBucketID, err = existingBucketID(s, pv.ID, oldView.InProgressBucketID)
+		if err != nil {
+			return
+		}
+	}
+
+	_, err = s.ID(pv.ID).Cols("default_bucket_id", "done_bucket_id", "in_progress_bucket_id").Update(pv)
 	return
 }
 

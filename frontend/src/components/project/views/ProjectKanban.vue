@@ -53,6 +53,13 @@
 									>
 										<Icon icon="check-double" />
 									</span>
+									<span
+										v-if="bucket.id !== 0 && view?.in_progress_bucket_id === bucket.id"
+										v-tooltip="$t('project.kanban.inProgressBucketHint')"
+										class="icon is-small has-text-primary mie-2"
+									>
+										<Icon icon="play" />
+									</span>
 									<h2
 										class="title input"
 										:contenteditable="(bucketTitleEditable && canWrite && !collapsedBuckets[bucket.id]) ? true : undefined"
@@ -113,6 +120,14 @@
 											{{
 												$t('project.kanban.limit', {limit: bucket.limit > 0 ? bucket.limit : $t('misc.notSet')})
 											}}
+										</DropdownItem>
+										<DropdownItem
+											v-tooltip="$t('project.kanban.inProgressBucketHint')"
+											:icon-class="{'has-text-primary': bucket.id === view?.in_progress_bucket_id}"
+											icon="play"
+											@click.stop="toggleInProgressBucket(bucket)"
+										>
+											{{ $t('project.kanban.inProgressBucket') }}
 										</DropdownItem>
 										<DropdownItem
 											v-tooltip="$t('project.kanban.doneBucketHintExtended')"
@@ -365,6 +380,7 @@ const {t} = useI18n({useScope: 'global'})
 const isCurrentProject = ({projectId: id}: {projectId: number}) => projectId.value === id
 const updateDefaultBucket = useUpdateProjectViewMutation(t('project.kanban.defaultBucketSavedSuccess'), isCurrentProject)
 const updateDoneBucket = useUpdateProjectViewMutation(t('project.kanban.doneBucketSavedSuccess'), isCurrentProject)
+const updateInProgressBucket = useUpdateProjectViewMutation(t('project.kanban.inProgressBucketSavedSuccess'), isCurrentProject)
 
 const {createNewTask, isLoading: quickAddLoading} = useQuickAddTask()
 const {setDraggedTask} = useTaskDragState()
@@ -837,7 +853,28 @@ function toggleDoneBucket(bucket: BucketResponse) {
 	updateDoneBucket.mutate({
 		projectId: projectId.value,
 		viewId: currentView.id,
-		view: createProjectViewUpdate({...currentView, done_bucket_id: doneBucketId}),
+		view: createProjectViewUpdate({
+			...currentView,
+			done_bucket_id: doneBucketId,
+			in_progress_bucket_id: currentView.in_progress_bucket_id === doneBucketId ? 0 : currentView.in_progress_bucket_id,
+		}),
+	})
+}
+
+function toggleInProgressBucket(bucket: BucketResponse) {
+	const currentView = view.value
+	if (!currentView?.id) {
+		return
+	}
+	const inProgressBucketId = currentView.in_progress_bucket_id === bucket.id ? 0 : bucket.id
+	updateInProgressBucket.mutate({
+		projectId: projectId.value,
+		viewId: currentView.id,
+		view: createProjectViewUpdate({
+			...currentView,
+			in_progress_bucket_id: inProgressBucketId,
+			done_bucket_id: currentView.done_bucket_id === inProgressBucketId ? 0 : currentView.done_bucket_id,
+		}),
 	})
 }
 

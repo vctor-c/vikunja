@@ -649,3 +649,48 @@ func TestValidateProjectViewFilters(t *testing.T) {
 		assert.ErrorAs(t, err, &ValidationHTTPError{})
 	})
 }
+
+func TestProjectView_InProgressBucket(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		bucketID  int64
+		wantError bool
+	}{
+		{name: "valid", bucketID: 2},
+		{name: "disabled", bucketID: 0},
+		{name: "same as done", bucketID: 3, wantError: true},
+		{name: "other view", bucketID: 4, wantError: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db.LoadAndAssertFixtures(t)
+			s := db.NewSession()
+			defer s.Close()
+			view, err := GetProjectViewByIDAndProject(s, 4, 1)
+			require.NoError(t, err)
+			view.InProgressBucketID = tc.bucketID
+			err = view.Update(s, &user.User{ID: 1})
+			if tc.wantError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			stored, err := GetProjectViewByIDAndProject(s, 4, 1)
+			require.NoError(t, err)
+			assert.Equal(t, tc.bucketID, stored.InProgressBucketID)
+		})
+	}
+	t.Run("deleting the in-progress bucket clears the setting", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+		view, err := GetProjectViewByIDAndProject(s, 4, 1)
+		require.NoError(t, err)
+		view.InProgressBucketID = 2
+		require.NoError(t, view.Update(s, &user.User{ID: 1}))
+		bucket := &Bucket{ID: 2, ProjectViewID: 4, ProjectID: 1}
+		require.NoError(t, bucket.Delete(s, &user.User{ID: 1}))
+		stored, err := GetProjectViewByIDAndProject(s, 4, 1)
+		require.NoError(t, err)
+		assert.Zero(t, stored.InProgressBucketID)
+	})
+}

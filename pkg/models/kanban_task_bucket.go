@@ -142,6 +142,8 @@ func updateTaskBucket(s *xorm.Session, a web.Auth, b *TaskBucket) (err error) {
 		bucket.Count = taskCount
 	}
 
+	// Keep the requested destination: repeating tasks are routed back to the default bucket.
+	timerBucketID := b.BucketID
 	var updateBucket = true
 
 	// mark task done if moved into or out of the done bucket
@@ -231,6 +233,10 @@ func updateTaskBucket(s *xorm.Session, a web.Auth, b *TaskBucket) (err error) {
 			return
 		}
 		bucket.Count++
+	}
+
+	if err = updateTimerForBucketMove(s, a, view, task.ID, timerBucketID); err != nil {
+		return err
 	}
 
 	b.Task = task

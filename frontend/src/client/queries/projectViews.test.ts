@@ -98,6 +98,7 @@ describe('project view queries', () => {
 			bucket_configuration: [],
 			default_bucket_id: 0,
 			done_bucket_id: 0,
+			in_progress_bucket_id: 0,
 		})
 	})
 

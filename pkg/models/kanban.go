@@ -402,6 +402,10 @@ func (b *Bucket) Delete(s *xorm.Session, a web.Auth) (err error) {
 		pv.DoneBucketID = 0
 		updateProjectView = true
 	}
+	if b.ID == pv.InProgressBucketID {
+		pv.InProgressBucketID = 0
+		updateProjectView = true
+	}
 	if updateProjectView {
 		err = pv.Update(s, a)
 		if err != nil {

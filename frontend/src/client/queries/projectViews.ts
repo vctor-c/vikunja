@@ -54,6 +54,7 @@ export function createProjectViewDraft(view: Partial<ProjectViewWritable> = {}):
 		bucket_configuration: view.bucket_configuration ?? [],
 		default_bucket_id: view.default_bucket_id ?? 0,
 		done_bucket_id: view.done_bucket_id ?? 0,
+		in_progress_bucket_id: view.in_progress_bucket_id ?? 0,
 	}
 }
 

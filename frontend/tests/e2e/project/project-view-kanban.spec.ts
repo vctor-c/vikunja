@@ -185,6 +185,59 @@ test.describe('Project View Kanban', () => {
 		await expect(page.locator('.kanban .bucket .title').filter({hasText: buckets[1].title})).toBeVisible()
 	})
 
+	test('In-progress bucket starts and done bucket stops the mover timer', async ({authenticatedPage: page, apiContext, userToken}) => {
+		buckets = await BucketFactory.create(3, {project_view_id: 4})
+		const [task] = await createTaskWithBuckets(buckets)
+		const headers = {Authorization: `Bearer ${userToken}`}
+		await page.goto('/projects/1/4')
+
+		const progress = page.locator(`[data-bucket-id="${buckets[1].id}"]`)
+		const done = page.locator(`[data-bucket-id="${buckets[2].id}"]`)
+		await progress.locator('.dropdown.options .dropdown-trigger').click()
+		const savedProgress = page.waitForResponse(response =>
+			response.url().includes('/projects/1/views/4') && response.request().method() === 'PUT',
+		)
+		await progress.locator('.dropdown-item').filter({hasText: 'In-progress bucket'}).click()
+		expect((await savedProgress).ok()).toBeTruthy()
+		await done.locator('.dropdown.options .dropdown-trigger').click()
+		const savedDone = page.waitForResponse(response =>
+			response.url().includes('/projects/1/views/4') && response.request().method() === 'PUT',
+		)
+		await done.locator('.dropdown-item').filter({hasText: 'Done bucket'}).click()
+		expect((await savedDone).ok()).toBeTruthy()
+
+		await page.reload()
+		const storedView = await apiContext.get('/api/v2/projects/1/views/4', {headers})
+		expect(storedView.ok()).toBeTruthy()
+		expect(await storedView.json()).toMatchObject({
+			in_progress_bucket_id: buckets[1].id,
+			done_bucket_id: buckets[2].id,
+		})
+
+		await page.locator('.kanban .task').filter({hasText: task.title}).first().dragTo(progress.locator('.tasks'))
+		await expect(progress.locator('.tasks')).toContainText(task.title)
+		await expect(page.locator('[data-cy="timerBadge"]')).toBeVisible()
+		await page.reload()
+		await expect(page.locator('[data-cy="timerBadge"]')).toBeVisible()
+		const running = await apiContext.get('/api/v2/time-entries', {headers})
+		expect(running.ok()).toBeTruthy()
+		const entries = (await running.json()).items
+		expect(entries).toHaveLength(1)
+		expect(entries[0].task_id).toBe(task.id)
+		expect(entries[0].end_time).toBeNull()
+
+		await progress.locator('.task').filter({hasText: task.title}).dragTo(done.locator('.tasks'))
+		await expect(done.locator('.tasks')).toContainText(task.title)
+		await expect(page.locator('[data-cy="timerBadge"]')).not.toBeVisible()
+		await page.reload()
+		await expect(page.locator('[data-cy="timerBadge"]')).not.toBeVisible()
+		const stopped = await apiContext.get('/api/v2/time-entries', {headers})
+		expect(stopped.ok()).toBeTruthy()
+		const finished = (await stopped.json()).items
+		expect(finished).toHaveLength(1)
+		expect(finished[0]).toMatchObject({id: entries[0].id, end_time: expect.any(String)})
+	})
+
 	test('Can drag tasks around', async ({authenticatedPage: page}) => {
 		const tasks = await createTaskWithBuckets(buckets, 2)
 		await page.goto('/projects/1/4')

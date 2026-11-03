@@ -1712,6 +1712,10 @@ export type ProjectView = {
      */
     readonly id?: number;
     /**
+     * The bucket that starts the moving user's timer. Zero disables automation. Moving to the done bucket stops that user's timer for the task. Must differ from the done bucket.
+     */
+    in_progress_bucket_id?: number;
+    /**
      * The position of this view in the project's list of views. Views are sorted ascending by this value.
      */
     position?: number;
@@ -1777,6 +1781,10 @@ export type ProjectViewReadBody = {
      * The unique, numeric id of this view. Set by the server.
      */
     readonly id?: number;
+    /**
+     * The bucket that starts the moving user's timer. Zero disables automation. Moving to the done bucket stops that user's timer for the task. Must differ from the done bucket.
+     */
+    in_progress_bucket_id?: number;
     /**
      * The maximum permission the requesting user has on this view (0=read, 1=read/write, 2=admin).
      */
@@ -4354,6 +4362,10 @@ export type ProjectViewWritable = {
      */
     filter?: TaskCollection;
     /**
+     * The bucket that starts the moving user's timer. Zero disables automation. Moving to the done bucket stops that user's timer for the task. Must differ from the done bucket.
+     */
+    in_progress_bucket_id?: number;
+    /**
      * The position of this view in the project's list of views. Views are sorted ascending by this value.
      */
     position?: number;
@@ -4388,6 +4400,10 @@ export type ProjectViewReadBodyWritable = {
      * The filter query used to match tasks shown in this view. Combine conditions with && or || (not and/or) and group them with parentheses. Operators: =, !=, >, >=, <, <=, like, in, not in. See https://vikunja.io/docs/filters.
      */
     filter?: TaskCollection;
+    /**
+     * The bucket that starts the moving user's timer. Zero disables automation. Moving to the done bucket stops that user's timer for the task. Must differ from the done bucket.
+     */
+    in_progress_bucket_id?: number;
     /**
      * The position of this view in the project's list of views. Views are sorted ascending by this value.
      */

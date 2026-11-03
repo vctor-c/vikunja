@@ -187,15 +187,17 @@ func duplicateViews(s *xorm.Session, pd *ProjectDuplicate, doer web.Auth, taskMa
 
 	oldViewIDs := []int64{}
 	viewMap := make(map[int64]int64)
-	// createProjectView discards both bucket ids, they are remapped below once
+	// createProjectView discards bucket ids, they are remapped below once
 	// the duplicated buckets exist.
 	oldDefaultBucketIDs := make(map[int64]int64, len(views))
 	oldDoneBucketIDs := make(map[int64]int64, len(views))
+	oldInProgressBucketIDs := make(map[int64]int64, len(views))
 	for _, view := range views {
 		oldID := view.ID
 		oldViewIDs = append(oldViewIDs, oldID)
 		oldDefaultBucketIDs[oldID] = view.DefaultBucketID
 		oldDoneBucketIDs[oldID] = view.DoneBucketID
+		oldInProgressBucketIDs[oldID] = view.InProgressBucketID
 
 		view.ID = 0
 		view.ProjectID = pd.Project.ID
@@ -238,8 +240,9 @@ func duplicateViews(s *xorm.Session, pd *ProjectDuplicate, doer web.Auth, taskMa
 	for oldViewID, view := range views {
 		view.DefaultBucketID = bucketMap[oldDefaultBucketIDs[oldViewID]]
 		view.DoneBucketID = bucketMap[oldDoneBucketIDs[oldViewID]]
+		view.InProgressBucketID = bucketMap[oldInProgressBucketIDs[oldViewID]]
 
-		if view.DefaultBucketID != 0 || view.DoneBucketID != 0 {
+		if view.DefaultBucketID != 0 || view.DoneBucketID != 0 || view.InProgressBucketID != 0 {
 			err = view.Update(s, doer)
 			if err != nil {
 				return err

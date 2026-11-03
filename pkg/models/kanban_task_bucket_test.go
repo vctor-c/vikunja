@@ -587,3 +587,128 @@ func TestTaskBucket_CanUpdate(t *testing.T) {
 		assert.False(t, can)
 	})
 }
+
+func TestTaskBucket_AutomaticTimer(t *testing.T) {
+	u := &user.User{ID: 1}
+	setup := func(t *testing.T) *xorm.Session {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		t.Cleanup(func() { _ = s.Close() })
+		_, err := s.ID(4).Cols("in_progress_bucket_id").Update(&ProjectView{InProgressBucketID: 2})
+		require.NoError(t, err)
+		_, err = s.ID(2).Cols("limit").Update(&Bucket{Limit: 0})
+		require.NoError(t, err)
+		return s
+	}
+	move := func(t *testing.T, s *xorm.Session, taskID, bucketID int64) {
+		tb := &TaskBucket{
+			TaskID:        taskID,
+			BucketID:      bucketID,
+			ProjectViewID: 4,
+			ProjectID:     1,
+		}
+		can, err := tb.CanUpdate(s, u)
+		require.NoError(t, err)
+		require.True(t, can)
+		require.NoError(t, tb.Update(s, u))
+	}
+	t.Run("starts for the mover and stops their previous timer", func(t *testing.T) {
+		s := setup(t)
+		move(t, s, 9, 2)
+		entries := []*TimeEntry{}
+		require.NoError(t, s.Where("user_id = ? AND end_time IS NULL", 1).Find(&entries))
+		require.Len(t, entries, 1)
+		assert.Equal(t, int64(9), entries[0].TaskID)
+		assert.WithinDuration(t, time.Now(), entries[0].StartTime, time.Second)
+		previous, err := getTimeEntryByID(s, 4)
+		require.NoError(t, err)
+		require.NotNil(t, previous.EndTime)
+		move(t, s, 9, 3)
+		stopped, err := getTimeEntryByID(s, entries[0].ID)
+		require.NoError(t, err)
+		require.NotNil(t, stopped.EndTime)
+		assert.False(t, stopped.EndTime.Before(stopped.StartTime))
+	})
+	t.Run("keeps an existing timer for the same task", func(t *testing.T) {
+		s := setup(t)
+		before, err := getTimeEntryByID(s, 4)
+		require.NoError(t, err)
+		move(t, s, 1, 2)
+		move(t, s, 1, 2) // Retrying or reordering must not create another entry.
+		after, err := getTimeEntryByID(s, 4)
+		require.NoError(t, err)
+		assert.Nil(t, after.EndTime)
+		assert.Equal(t, before.StartTime, after.StartTime)
+		count, err := s.Where("task_id = ?", 1).Count(&TimeEntry{})
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), count)
+	})
+	t.Run("finishing another task leaves the current timer running", func(t *testing.T) {
+		s := setup(t)
+		move(t, s, 9, 3)
+		entry, err := getTimeEntryByID(s, 4)
+		require.NoError(t, err)
+		assert.Nil(t, entry.EndTime)
+	})
+	t.Run("finishing a task does not stop another user's timer", func(t *testing.T) {
+		s := setup(t)
+		other := &TimeEntry{
+			TaskID:    1,
+			UserID:    2,
+			StartTime: time.Now(),
+		}
+		_, err := s.Insert(other)
+		require.NoError(t, err)
+		move(t, s, 1, 3)
+		stored, err := getTimeEntryByID(s, other.ID)
+		require.NoError(t, err)
+		assert.Nil(t, stored.EndTime)
+		own, err := getTimeEntryByID(s, 4)
+		require.NoError(t, err)
+		assert.NotNil(t, own.EndTime)
+	})
+	t.Run("disabled automation leaves timers unchanged", func(t *testing.T) {
+		s := setup(t)
+		_, err := s.ID(4).Cols("in_progress_bucket_id").Update(&ProjectView{})
+		require.NoError(t, err)
+		move(t, s, 1, 3)
+		entry, err := getTimeEntryByID(s, 4)
+		require.NoError(t, err)
+		assert.Nil(t, entry.EndTime)
+	})
+	t.Run("link shares never affect a user's timer", func(t *testing.T) {
+		s := setup(t)
+		view, err := GetProjectViewByIDAndProject(s, 4, 1)
+		require.NoError(t, err)
+		require.NoError(t, updateTimerForBucketMove(s, &LinkSharing{ID: 1}, view, 1, 3))
+		require.NoError(t, updateTimerForBucketMove(s, &LinkSharing{ID: 1}, view, 9, 2))
+		entry, err := getTimeEntryByID(s, 4)
+		require.NoError(t, err)
+		assert.Nil(t, entry.EndTime)
+		count, err := s.Count(&TimeEntry{})
+		require.NoError(t, err)
+		assert.Equal(t, int64(4), count)
+	})
+	t.Run("repeating tasks stop the timer before returning to backlog", func(t *testing.T) {
+		s := setup(t)
+		_, err := s.ID(1).Cols("repeat_after").Update(&Task{RepeatAfter: 86400})
+		require.NoError(t, err)
+		move(t, s, 1, 3)
+		entry, err := getTimeEntryByID(s, 4)
+		require.NoError(t, err)
+		assert.NotNil(t, entry.EndTime)
+	})
+	t.Run("rolls back timer changes with the move", func(t *testing.T) {
+		s := setup(t)
+		require.NoError(t, s.Commit())
+		require.NoError(t, s.Begin())
+		move(t, s, 9, 2)
+		require.NoError(t, s.Rollback())
+		entry, err := getTimeEntryByID(s, 4)
+		require.NoError(t, err)
+		assert.Nil(t, entry.EndTime)
+		count, err := s.Where("task_id = ?", 9).Count(&TimeEntry{})
+		require.NoError(t, err)
+		assert.Zero(t, count)
+	})
+}

@@ -71,6 +71,27 @@ func TestProjectDuplicate(t *testing.T) {
 		assert.Equal(t, oldCount, newCount)
 	})
 
+	t.Run("in-progress bucket is remapped to the duplicated view", func(t *testing.T) {
+		files.InitTestFileFixtures(t)
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+		_, err := s.ID(4).Cols("in_progress_bucket_id").Update(&ProjectView{InProgressBucketID: 2})
+		require.NoError(t, err)
+		duplicate := &ProjectDuplicate{ProjectID: 1}
+		require.NoError(t, duplicate.Create(s, &user.User{ID: 1}))
+		view := &ProjectView{}
+		found, err := s.Where("project_id = ? AND view_kind = ?", duplicate.Project.ID, ProjectViewKindKanban).Get(view)
+		require.NoError(t, err)
+		require.True(t, found)
+		require.NotZero(t, view.InProgressBucketID)
+		require.NotEqual(t, int64(2), view.InProgressBucketID)
+		bucket, err := getBucketByID(s, view.InProgressBucketID)
+		require.NoError(t, err)
+		assert.Equal(t, view.ID, bucket.ProjectViewID)
+		assert.Equal(t, "testbucket2", bucket.Title)
+	})
+
 	t.Run("shares are not copied by default", func(t *testing.T) {
 		files.InitTestFileFixtures(t)
 		db.LoadAndAssertFixtures(t)

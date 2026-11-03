@@ -1,3 +1,4 @@
+import {timeEntryKeys} from './timeEntries'
 import {useMutation, type QueryClient} from '@tanstack/vue-query'
 import {
 	tasksCreate,
@@ -443,7 +444,10 @@ export function moveTaskMutationOptions() {
 			const id = data.task?.id ?? task.id
 			if (id !== undefined) reconcileTaskBuckets(client, {project, view, bucket: target, task: id})
 		},
-		onSettled: ({task}, client) => invalidateTaskMembership(client, task.id),
+		onSettled: ({task}, client) => Promise.all([
+			invalidateTaskMembership(client, task.id),
+			client.invalidateQueries({queryKey: timeEntryKeys.all}),
+		]),
 	})
 }
 

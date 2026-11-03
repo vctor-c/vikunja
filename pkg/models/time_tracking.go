@@ -528,3 +528,41 @@ func addTimeEntriesCountToTasks(s *xorm.Session, a web.Auth, taskIDs []int64, ta
 
 	return nil
 }
+
+// updateTimerForBucketMove changes only the caller's timer, in the same transaction as the move.
+func updateTimerForBucketMove(s *xorm.Session, a web.Auth, view *ProjectView, taskID, bucketID int64) error {
+	if view.InProgressBucketID == 0 || view.BucketConfigurationMode != BucketConfigurationModeManual {
+		return nil
+	}
+	if _, isShare := a.(*LinkSharing); isShare {
+		return nil
+	}
+	if bucketID != view.InProgressBucketID && bucketID != view.DoneBucketID {
+		return nil
+	}
+
+	running := &TimeEntry{}
+	exists, err := s.Where("user_id = ? AND end_time IS NULL", a.GetID()).Get(running)
+	if err != nil {
+		return err
+	}
+	if bucketID == view.DoneBucketID {
+		if exists && running.TaskID == taskID {
+			_, err = StopRunningTimer(s, a)
+		}
+		return err
+	}
+	if exists && running.TaskID == taskID {
+		return nil
+	}
+
+	entry := &TimeEntry{TaskID: taskID, StartTime: time.Now()}
+	can, err := entry.CanCreate(s, a)
+	if err != nil {
+		return err
+	}
+	if !can {
+		return ErrGenericForbidden{}
+	}
+	return entry.Create(s, a)
+}
