@@ -15,6 +15,7 @@ import type {
 	TimeEntryWritable,
 	User,
 } from '@/client/generated'
+import {taskKeys} from './tasks'
 import {contextMutationOptions} from './contextMutation'
 import {
 	toPaginated,
@@ -131,10 +132,20 @@ function bumpTaskEntryCount(client: QueryClient, taskId: number, delta: number) 
 	}))
 }
 
+// A timer change can affect both its new task and the previously running task.
+// Refresh only loaded summaries; ordinary lists and boards retain their patched data.
+export function invalidateTimeBudgets(client: QueryClient) {
+	return client.invalidateQueries({
+		queryKey: taskKeys.details,
+		predicate: query => Array.isArray(query.queryKey[3]) && query.queryKey[3].includes('time_tracking'),
+	})
+}
+
 function settle(client: QueryClient, taskId?: number) {
 	return Promise.all([
 		client.invalidateQueries({queryKey: timeEntryKeys.all}),
 		invalidateTaskMembership(client, taskId === 0 ? undefined : taskId),
+		invalidateTimeBudgets(client),
 	])
 }
 
@@ -188,8 +199,11 @@ export function stopTimerMutationOptions() {
 	return contextMutationOptions({
 		mutationFn: async () => (await timeEntriesTimerStop()).data,
 		onSuccess: (entry, _input, client) => patchTimeEntry(client, entry),
-		// Stopping changes no task-derived data (the entry was already counted at create); settle() would also mark every task list/board stale.
-		onSettled: (_input, client) => client.invalidateQueries({queryKey: timeEntryKeys.all}),
+		// The count stays unchanged, but summaries must stop extrapolating elapsed time.
+		onSettled: (_input, client) => Promise.all([
+			client.invalidateQueries({queryKey: timeEntryKeys.all}),
+			invalidateTimeBudgets(client),
+		]),
 	})
 }
 

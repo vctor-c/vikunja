@@ -619,7 +619,7 @@ func requiredScopeForExpand(value string) (group, permission string, needsScope 
 		return "tasks_comments", "read_all", true
 	case TaskCollectionExpandReactions:
 		return "reactions", "read_all", true
-	case TaskCollectionExpandTimeEntriesCount:
+	case TaskCollectionExpandTimeEntriesCount, TaskCollectionExpandTimeTracking:
 		return "time_entries", "read_all", true
 	case TaskCollectionExpandSubtasks, TaskCollectionExpandBuckets, TaskCollectionExpandIsUnread:
 		return "", "", false

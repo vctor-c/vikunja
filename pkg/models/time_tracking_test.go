@@ -860,3 +860,51 @@ func TestTimeEntry_TaskCount(t *testing.T) {
 		assert.Equal(t, int64(2), *task1.TimeEntriesCount)
 	})
 }
+
+func TestTaskTimeBudget(t *testing.T) {
+	t.Run("summary includes all contributors and active timers", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+		now := time.Now().Truncate(time.Second)
+		_, err := s.ID(4).Cols("start_time").Update(&TimeEntry{StartTime: now.Add(-30 * time.Minute)})
+		require.NoError(t, err)
+		_, err = s.Insert(&TimeEntry{TaskID: 1, UserID: 2, StartTime: now.Add(-2 * time.Hour), EndTime: timePtr(now.Add(-time.Hour))})
+		require.NoError(t, err)
+		tasks := map[int64]*Task{1: {ID: 1}, 2: {ID: 2}}
+		require.NoError(t, addTimeTrackingToTasks(s, &user.User{ID: 1}, []int64{1, 2}, tasks))
+		require.NotNil(t, tasks[1].TimeTracking)
+		assert.InDelta(t, 9000, tasks[1].TimeTracking.TrackedSeconds, 2)
+		assert.Equal(t, int64(1), tasks[1].TimeTracking.RunningTimers)
+		assert.Zero(t, tasks[2].TimeTracking.TrackedSeconds)
+		assert.WithinDuration(t, now, tasks[1].TimeTracking.CalculatedAt, 2*time.Second)
+	})
+	t.Run("link shares cannot see summaries", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+		tasks := map[int64]*Task{1: {ID: 1}}
+		require.NoError(t, addTimeTrackingToTasks(s, &LinkSharing{ID: 1}, []int64{1}, tasks))
+		assert.Nil(t, tasks[1].TimeTracking)
+	})
+	t.Run("estimate persists across partial updates and can be cleared", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+		u := &user.User{ID: 1}
+		task := &Task{ID: 1, TimeEstimateSeconds: 18000}
+		require.NoError(t, task.updateSingleTask(s, u, []string{"time_estimate_seconds"}))
+		require.NoError(t, (&Task{ID: 1, Title: "Budgeted task"}).updateSingleTask(s, u, []string{"title"}))
+		saved := &Task{}
+		_, err := s.ID(1).Get(saved)
+		require.NoError(t, err)
+		assert.Equal(t, int64(18000), saved.TimeEstimateSeconds)
+		require.NoError(t, (&Task{ID: 1}).updateSingleTask(s, u, []string{"time_estimate_seconds"}))
+		saved = &Task{}
+		_, err = s.ID(1).Get(saved)
+		require.NoError(t, err)
+		assert.Zero(t, saved.TimeEstimateSeconds)
+		require.Error(t, (&Task{ID: 1, TimeEstimateSeconds: -1}).updateSingleTask(s, u, []string{"time_estimate_seconds"}))
+		require.Error(t, validateTaskForCreation(&Task{Title: "Invalid", TimeEstimateSeconds: -1}))
+	})
+}

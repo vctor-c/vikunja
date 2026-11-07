@@ -530,14 +530,14 @@ func addTimeEntriesCountToTasks(s *xorm.Session, a web.Auth, taskIDs []int64, ta
 }
 
 // updateTimerForBucketMove changes only the caller's timer, in the same transaction as the move.
-func updateTimerForBucketMove(s *xorm.Session, a web.Auth, view *ProjectView, taskID, bucketID int64) error {
+func updateTimerForBucketMove(s *xorm.Session, a web.Auth, view *ProjectView, taskID, oldBucketID, bucketID int64) error {
 	if view.InProgressBucketID == 0 || view.BucketConfigurationMode != BucketConfigurationModeManual {
 		return nil
 	}
 	if _, isShare := a.(*LinkSharing); isShare {
 		return nil
 	}
-	if bucketID != view.InProgressBucketID && bucketID != view.DoneBucketID {
+	if bucketID != view.InProgressBucketID && oldBucketID != view.InProgressBucketID && bucketID != view.DoneBucketID {
 		return nil
 	}
 
@@ -546,7 +546,7 @@ func updateTimerForBucketMove(s *xorm.Session, a web.Auth, view *ProjectView, ta
 	if err != nil {
 		return err
 	}
-	if bucketID == view.DoneBucketID {
+	if bucketID != view.InProgressBucketID {
 		if exists && running.TaskID == taskID {
 			_, err = StopRunningTimer(s, a)
 		}
@@ -565,4 +565,43 @@ func updateTimerForBucketMove(s *xorm.Session, a web.Auth, view *ProjectView, ta
 		return ErrGenericForbidden{}
 	}
 	return entry.Create(s, a)
+}
+
+// TaskTimeTrackingSummary is the task's lifetime total across all contributors.
+type TaskTimeTrackingSummary struct {
+	TrackedSeconds int64     `json:"tracked_seconds" doc:"Total seconds tracked, including running timers up to calculated_at."`
+	RunningTimers  int64     `json:"running_timers" doc:"Number of active timers included in the total."`
+	CalculatedAt   time.Time `json:"calculated_at" doc:"Server timestamp at which the total was calculated."`
+}
+
+func addTimeTrackingToTasks(s *xorm.Session, a web.Auth, taskIDs []int64, taskMap map[int64]*Task) error {
+	if _, isShare := a.(*LinkSharing); isShare {
+		return nil
+	}
+	if !license.IsFeatureEnabled(license.FeatureTimeTracking) || len(taskIDs) == 0 {
+		return nil
+	}
+	now := time.Now()
+	for _, id := range taskIDs {
+		if task := taskMap[id]; task != nil {
+			task.TimeTracking = &TaskTimeTrackingSummary{CalculatedAt: now}
+		}
+	}
+	// Iterate instead of loading every historical entry into memory. Duration
+	// arithmetic in Go also keeps the result identical on all supported databases.
+	return s.Cols("task_id", "start_time", "end_time").Where(builder.In("task_id", taskIDs)).Iterate(new(TimeEntry), func(_ int, bean interface{}) error {
+		entry := bean.(*TimeEntry)
+		task := taskMap[entry.TaskID]
+		if task == nil {
+			return nil
+		}
+		end := now
+		if entry.EndTime != nil {
+			end = *entry.EndTime
+		} else {
+			task.TimeTracking.RunningTimers++
+		}
+		task.TimeTracking.TrackedSeconds += max(0, int64(end.Sub(entry.StartTime).Seconds()))
+		return nil
+	})
 }

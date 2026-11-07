@@ -1,4 +1,4 @@
-import {timeEntryKeys} from './timeEntries'
+import {timeEntryKeys, invalidateTimeBudgets} from './timeEntries'
 import {useMutation, type QueryClient} from '@tanstack/vue-query'
 import {
 	tasksCreate,
@@ -53,6 +53,7 @@ const writableFields = [
 	'priority',
 	'hex_color',
 	'percent_done',
+	'time_estimate_seconds',
 	'repeat_after',
 	'repeat_mode',
 	'is_favorite',
@@ -447,6 +448,7 @@ export function moveTaskMutationOptions() {
 		onSettled: ({task}, client) => Promise.all([
 			invalidateTaskMembership(client, task.id),
 			client.invalidateQueries({queryKey: timeEntryKeys.all}),
+			invalidateTimeBudgets(client),
 		]),
 	})
 }

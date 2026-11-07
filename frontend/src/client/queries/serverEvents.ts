@@ -92,7 +92,7 @@ async function invalidateCachedTask(client: QueryClient, taskId: number | undefi
 	if (!taskId) return
 	const heldByCollection = taskQueryKeys(client, taskId).some(key => !isTaskDetailKey(key))
 	await Promise.all([
-		client.invalidateQueries({queryKey: taskKeys.detail(taskId)}),
+		client.invalidateQueries({queryKey: [...taskKeys.details, taskId]}),
 		...(heldByCollection ? [invalidateTaskMembership(client)] : []),
 	])
 }

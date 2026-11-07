@@ -58,6 +58,7 @@
 							>
 								{{ row.taskIdentifier }}{{ row.taskTitle ? ` - ${row.taskTitle}` : '' }}
 							</RouterLink>
+							<TimeBudgetStatus :task="row.task" />
 						</td>
 						<td class="nowrap">
 							<User
@@ -121,6 +122,7 @@
 <script setup lang="ts">
 import {computed} from 'vue'
 
+import TimeBudgetStatus from './TimeBudgetStatus.vue'
 import Card from '@/components/misc/Card.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import User from '@/components/misc/User.vue'
@@ -174,7 +176,7 @@ const taskIds = computed(() => props.hideLabelColumn
 
 // Entries carry only a task id; the full task (title, identifier, parent project) is resolved lazily.
 const taskQueries = useQueries({
-	queries: computed(() => taskIds.value.map(id => taskQuery(id))),
+	queries: computed(() => taskIds.value.map(id => ({...taskQuery(id, ['time_tracking']), refetchInterval: 30000}))),
 })
 const tasks = computed<Record<number, TaskResponse>>(() => Object.fromEntries(
 	taskQueries.value.flatMap(result => result.data ? [[result.data.id, result.data] as const] : []),
@@ -198,6 +200,7 @@ const rows = computed(() => props.entries.map(entry => {
 
 	return {
 		entry,
+		task,
 		// Full ancestor chain (root → leaf), each link-able.
 		projectChain: ancestors.map(p => ({id: p.id, title: getProjectTitle(p)})),
 		taskIdentifier: task ? (task.identifier || `#${task.index}`) : (entry.task_id > 0 ? `#${entry.task_id}` : ''),

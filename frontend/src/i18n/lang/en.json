@@ -589,7 +589,7 @@
       "title": "Kanban",
       "limit": "Limit: {limit}",
       "inProgressBucket": "In-progress bucket",
-      "inProgressBucketHint": "Moving a task here starts your timer and stops your previous timer. Moving it to the done bucket stops your timer for that task. Click again to disable.",
+      "inProgressBucketHint": "Moving a task here starts your timer and stops your previous timer. Moving it out of this bucket stops your timer for that task. Click again to disable.",
       "inProgressBucketSavedSuccess": "The in-progress bucket has been saved successfully.",
       "doneBucket": "Done bucket",
       "doneBucketHint": "All tasks moved into this bucket will automatically marked as done.",
@@ -1687,6 +1687,13 @@
     "proActive": "Pro active"
   },
   "timeTracking": {
+    "budget": {
+      "label": "Estimated hours (optional)",
+      "optional": "No estimate",
+      "total": "Task total: {spent} h / {estimated} h estimated",
+      "remaining": "{hours} h remaining",
+      "exceeded": "{hours} h over budget"
+    },
     "title": "Time tracking",
     "stop": "Stop timer",
     "logTime": "Log time",

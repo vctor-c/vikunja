@@ -235,7 +235,7 @@ func updateTaskBucket(s *xorm.Session, a web.Auth, b *TaskBucket) (err error) {
 		bucket.Count++
 	}
 
-	if err = updateTimerForBucketMove(s, a, view, task.ID, timerBucketID); err != nil {
+	if err = updateTimerForBucketMove(s, a, view, task.ID, oldTaskBucket.BucketID, timerBucketID); err != nil {
 		return err
 	}
 

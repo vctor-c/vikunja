@@ -185,7 +185,7 @@ test.describe('Project View Kanban', () => {
 		await expect(page.locator('.kanban .bucket .title').filter({hasText: buckets[1].title})).toBeVisible()
 	})
 
-	test('In-progress bucket starts and done bucket stops the mover timer', async ({authenticatedPage: page, apiContext, userToken}) => {
+	test('In-progress bucket starts and leaving it stops the mover timer', async ({authenticatedPage: page, apiContext, userToken}) => {
 		buckets = await BucketFactory.create(3, {project_view_id: 4})
 		const [task] = await createTaskWithBuckets(buckets)
 		const headers = {Authorization: `Bearer ${userToken}`}
@@ -226,8 +226,9 @@ test.describe('Project View Kanban', () => {
 		expect(entries[0].task_id).toBe(task.id)
 		expect(entries[0].end_time).toBeNull()
 
-		await progress.locator('.task').filter({hasText: task.title}).dragTo(done.locator('.tasks'))
-		await expect(done.locator('.tasks')).toContainText(task.title)
+		const backlog = page.locator(`[data-bucket-id="${buckets[0].id}"]`)
+		await progress.locator('.task').filter({hasText: task.title}).dragTo(backlog.locator('.tasks'))
+		await expect(backlog.locator('.tasks')).toContainText(task.title)
 		await expect(page.locator('[data-cy="timerBadge"]')).not.toBeVisible()
 		await page.reload()
 		await expect(page.locator('[data-cy="timerBadge"]')).not.toBeVisible()

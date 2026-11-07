@@ -179,7 +179,7 @@ type ProjectView struct {
 	DoneBucketID int64 `xorm:"bigint INDEX null" json:"done_bucket_id" doc:"The id of the done bucket. Tasks moved here are marked done, and tasks marked done are moved here."`
 
 	// Moving a task here starts the moving user's timer. Zero disables automatic time tracking.
-	InProgressBucketID int64 `xorm:"bigint INDEX null" json:"in_progress_bucket_id" doc:"The bucket that starts the moving user's timer. Zero disables automation. Moving to the done bucket stops that user's timer for the task. Must differ from the done bucket."`
+	InProgressBucketID int64 `xorm:"bigint INDEX null" json:"in_progress_bucket_id" doc:"The bucket that starts the moving user's timer. Zero disables automation. Moving out of this bucket stops that user's timer for the task. Must differ from the done bucket."`
 
 	// A timestamp when this view was updated. You cannot change this value.
 	Updated time.Time `xorm:"updated not null" json:"updated" readOnly:"true" doc:"A timestamp when this view was last updated. You cannot change this value."`

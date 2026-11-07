@@ -71,6 +71,9 @@ func validateTaskForCreation(t *Task) error {
 		return ErrTaskCannotBeEmpty{}
 	}
 
+	if t.TimeEstimateSeconds < 0 {
+		return InvalidFieldErrorWithMessage([]string{"time_estimate_seconds"}, "Time estimate must not be negative")
+	}
 	return validateRepeatAfter(t.RepeatAfter)
 }
 
@@ -109,7 +112,11 @@ type Task struct {
 	Labels []*Label `xorm:"-" json:"labels" readOnly:"true" doc:"The labels on this task. Read-only here; use the label-task endpoints to add or remove labels."`
 	// The task color in hex
 	HexColor string `xorm:"varchar(6) null" json:"hex_color" valid:"hexcolor" maxLength:"7" doc:"The task color as a hex string without the leading '#'."`
-	// Determines how far a task is left from being done
+	// Optional time budget in seconds. Zero means no estimate.
+	TimeEstimateSeconds int64 `xorm:"bigint not null default 0" json:"time_estimate_seconds" minimum:"0" valid:"range(0|9223372036854775807)" doc:"Optional time budget in seconds. Zero means no estimate."`
+	// Aggregated time across all users, present with the time_tracking expansion.
+	TimeTracking *TaskTimeTrackingSummary `xorm:"-" json:"time_tracking,omitempty" readOnly:"true" doc:"Total tracked time across all users, including active timers. Requires the time_tracking expansion."`
+	// Determines how far a task is left from being done.
 	PercentDone float64 `xorm:"DOUBLE null" json:"percent_done" doc:"How far the task is from done, between 0 and 1."`
 
 	// The task identifier, based on the project identifier and the task's index
@@ -805,6 +812,11 @@ func addMoreInfoToTasks(s *xorm.Session, taskMap map[int64]*Task, a web.Auth, vi
 				if err != nil {
 					return err
 				}
+			case TaskCollectionExpandTimeTracking:
+				err = addTimeTrackingToTasks(s, a, taskIDs, taskMap)
+				if err != nil {
+					return err
+				}
 			case TaskCollectionExpandTimeEntriesCount:
 				err = addTimeEntriesCountToTasks(s, a, taskIDs, taskMap)
 				if err != nil {
@@ -1324,6 +1336,7 @@ func (t *Task) updateSingleTask(s *xorm.Session, a web.Auth, fields []string) (e
 		"end_date",
 		"hex_color",
 		"percent_done",
+		"time_estimate_seconds",
 		"project_id",
 		"bucket_id",
 		"repeat_mode",
@@ -1383,6 +1396,9 @@ func (t *Task) updateSingleTask(s *xorm.Session, a web.Auth, fields []string) (e
 		if !fieldSet["hex_color"] {
 			t.HexColor = ot.HexColor
 		}
+		if !fieldSet["time_estimate_seconds"] {
+			t.TimeEstimateSeconds = ot.TimeEstimateSeconds
+		}
 		if !fieldSet["percent_done"] {
 			t.PercentDone = ot.PercentDone
 		}
@@ -1403,6 +1419,9 @@ func (t *Task) updateSingleTask(s *xorm.Session, a web.Auth, fields []string) (e
 		}
 	}
 
+	if t.TimeEstimateSeconds < 0 {
+		return InvalidFieldErrorWithMessage([]string{"time_estimate_seconds"}, "Time estimate must not be negative")
+	}
 	if len(fields) == 0 || fieldSet["assignees"] {
 		if err := ot.updateTaskAssignees(s, t.Assignees, a); err != nil {
 			return err
@@ -1650,6 +1669,8 @@ func (t *Task) updateSingleTask(s *xorm.Session, a web.Auth, fields []string) (e
 	if t.HexColor == "" {
 		ot.HexColor = ""
 	}
+	// Zero clears the optional estimate.
+	ot.TimeEstimateSeconds = t.TimeEstimateSeconds
 	// Percent Done
 	if t.PercentDone == 0 {
 		ot.PercentDone = 0

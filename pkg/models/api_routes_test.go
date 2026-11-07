@@ -454,7 +454,7 @@ func TestCanDoAPIRoute_ExpandScopes(t *testing.T) {
 	withScopes := &APIToken{APIPermissions: withScopesPerms}
 
 	t.Run("each expand value requires its own scope", func(t *testing.T) {
-		for _, expand := range []string{"comments", "comment_count", "reactions", "time_entries_count"} {
+		for _, expand := range []string{"comments", "comment_count", "reactions", "time_entries_count", "time_tracking"} {
 			assert.False(t, do(t, "/api/v1/tasks?expand="+expand, tasksOnly),
 				"a tasks-only token must not expand %s", expand)
 			assert.False(t, do(t, "/api/v2/tasks?expand="+expand, tasksOnly),

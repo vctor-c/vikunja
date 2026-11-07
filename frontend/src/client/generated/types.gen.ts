@@ -1712,7 +1712,7 @@ export type ProjectView = {
      */
     readonly id?: number;
     /**
-     * The bucket that starts the moving user's timer. Zero disables automation. Moving to the done bucket stops that user's timer for the task. Must differ from the done bucket.
+     * The bucket that starts the moving user's timer. Zero disables automation. Moving out of this bucket stops that user's timer for the task. Must differ from the done bucket.
      */
     in_progress_bucket_id?: number;
     /**
@@ -1782,7 +1782,7 @@ export type ProjectViewReadBody = {
      */
     readonly id?: number;
     /**
-     * The bucket that starts the moving user's timer. Zero disables automation. Moving to the done bucket stops that user's timer for the task. Must differ from the done bucket.
+     * The bucket that starts the moving user's timer. Zero disables automation. Moving out of this bucket stops that user's timer for the task. Must differ from the done bucket.
      */
     in_progress_bucket_id?: number;
     /**
@@ -2232,6 +2232,14 @@ export type Task = {
      */
     readonly time_entries_count?: number;
     /**
+     * Optional time budget in seconds. Zero means no estimate.
+     */
+    time_estimate_seconds?: number;
+    /**
+     * Total tracked time across all users, including active timers. Requires the time_tracking expansion.
+     */
+    readonly time_tracking?: TaskTimeTrackingSummary;
+    /**
      * The task title. This is what you'll see in the project.
      */
     title?: string;
@@ -2573,6 +2581,14 @@ export type TaskReadOneBody = {
      */
     readonly time_entries_count?: number;
     /**
+     * Optional time budget in seconds. Zero means no estimate.
+     */
+    time_estimate_seconds?: number;
+    /**
+     * Total tracked time across all users, including active timers. Requires the time_tracking expansion.
+     */
+    readonly time_tracking?: TaskTimeTrackingSummary;
+    /**
      * The task title. This is what you'll see in the project.
      */
     title?: string;
@@ -2613,6 +2629,21 @@ export type TaskReminder = {
     relative_period?: number;
     relative_to?: string;
     reminder?: string;
+};
+
+export type TaskTimeTrackingSummary = {
+    /**
+     * Server timestamp at which the total was calculated.
+     */
+    calculated_at?: string;
+    /**
+     * Number of active timers included in the total.
+     */
+    running_timers?: number;
+    /**
+     * Total seconds tracked, including running timers up to calculated_at.
+     */
+    tracked_seconds?: number;
 };
 
 export type Team = {
@@ -4362,7 +4393,7 @@ export type ProjectViewWritable = {
      */
     filter?: TaskCollection;
     /**
-     * The bucket that starts the moving user's timer. Zero disables automation. Moving to the done bucket stops that user's timer for the task. Must differ from the done bucket.
+     * The bucket that starts the moving user's timer. Zero disables automation. Moving out of this bucket stops that user's timer for the task. Must differ from the done bucket.
      */
     in_progress_bucket_id?: number;
     /**
@@ -4401,7 +4432,7 @@ export type ProjectViewReadBodyWritable = {
      */
     filter?: TaskCollection;
     /**
-     * The bucket that starts the moving user's timer. Zero disables automation. Moving to the done bucket stops that user's timer for the task. Must differ from the done bucket.
+     * The bucket that starts the moving user's timer. Zero disables automation. Moving out of this bucket stops that user's timer for the task. Must differ from the done bucket.
      */
     in_progress_bucket_id?: number;
     /**
@@ -4533,6 +4564,10 @@ export type TaskWritable = {
     repeat_mode?: number;
     start_date?: string;
     /**
+     * Optional time budget in seconds. Zero means no estimate.
+     */
+    time_estimate_seconds?: number;
+    /**
      * The task title. This is what you'll see in the project.
      */
     title?: string;
@@ -4633,6 +4668,10 @@ export type TaskReadOneBodyWritable = {
      */
     repeat_mode?: number;
     start_date?: string;
+    /**
+     * Optional time budget in seconds. Zero means no estimate.
+     */
+    time_estimate_seconds?: number;
     /**
      * The task title. This is what you'll see in the project.
      */
@@ -7610,7 +7649,7 @@ export type ProjectTasksListData = {
         /**
          * Embed extra, more expensive data per task. Repeatable.
          */
-        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread'> | null;
+        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'time_tracking' | 'is_unread'> | null;
         /**
          * How rich-text fields are exchanged. See the API description.
          */
@@ -7741,7 +7780,7 @@ export type TasksReadByIndexData = {
         /**
          * Embed extra data per task. Repeatable.
          */
-        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread'> | null;
+        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'time_tracking' | 'is_unread'> | null;
         /**
          * How rich-text fields are exchanged. See the API description.
          */
@@ -8360,7 +8399,7 @@ export type ProjectViewBucketsTasksListData = {
         /**
          * Embed extra, more expensive data per task. Repeatable.
          */
-        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread'> | null;
+        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'time_tracking' | 'is_unread'> | null;
         /**
          * How rich-text fields are exchanged. See the API description.
          */
@@ -8522,7 +8561,7 @@ export type ProjectViewTasksListData = {
         /**
          * Embed extra, more expensive data per task. Repeatable.
          */
-        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread'> | null;
+        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'time_tracking' | 'is_unread'> | null;
         /**
          * How rich-text fields are exchanged. See the API description.
          */
@@ -8863,7 +8902,7 @@ export type TasksListData = {
         /**
          * Embed extra, more expensive data per task. Repeatable.
          */
-        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread'> | null;
+        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'time_tracking' | 'is_unread'> | null;
         /**
          * How rich-text fields are exchanged. See the API description.
          */
@@ -9017,7 +9056,7 @@ export type TasksReadData = {
         /**
          * Embed extra data per task. Repeatable.
          */
-        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread'> | null;
+        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'time_tracking' | 'is_unread'> | null;
         /**
          * How rich-text fields are exchanged. See the API description.
          */

@@ -4,7 +4,8 @@ import {
 	it,
 	vi,
 } from 'vitest'
-import {QueryClient} from '@tanstack/vue-query'
+import {unref} from 'vue'
+import {QueryClient, QueryObserver} from '@tanstack/vue-query'
 import {
 	activeTimerQuery,
 	createTimeEntryMutationOptions,
@@ -20,11 +21,13 @@ import {
 import type {TimeEntry} from '@/client/generated'
 import {
 	normalizeTask,
+	taskQuery,
 	taskKeys,
 	type TaskResponse,
 } from './tasks'
 const sdk = vi.hoisted(() => ({
 	timeEntriesList: vi.fn(),
+	tasksRead: vi.fn(),
 	timeEntriesCreate: vi.fn(),
 	timeEntriesTimerStop: vi.fn(),
 	timeEntriesUpdate: vi.fn(),
@@ -298,4 +301,29 @@ it('keeps the active timer cached when a still-running entry is updated', async 
 		comment: 'renamed',
 		end_time: null,
 	})
+})
+
+
+it('refreshes an active task summary when its timer stops without refetching ordinary task details', async () => {
+	const activeSummary = {tracked_seconds: 1800, running_timers: 1, calculated_at: '2026-09-19T09:30:00Z'}
+	sdk.tasksRead.mockResolvedValue({data: {id: 1, time_tracking: activeSummary}})
+	const options = taskQuery(1, ['time_tracking'])
+	const observer = new QueryObserver(client, {
+		queryKey: taskKeys.detail(1, ['time_tracking']),
+		queryFn: unref(options.queryFn),
+	})
+	const unsubscribe = observer.subscribe(() => {})
+	try {
+		await observer.refetch()
+		client.setQueryData(taskKeys.detail(1), normalizeTask({id: 1}))
+		sdk.tasksRead.mockClear()
+		sdk.tasksRead.mockResolvedValue({data: {id: 1, time_tracking: {...activeSummary, tracked_seconds: 3600, running_timers: 0}}})
+		sdk.timeEntriesTimerStop.mockResolvedValue({data: {...running, end_time: '2026-09-19T10:00:00Z'}})
+		await client.getMutationCache().build(client, stopTimerMutationOptions()).execute(undefined)
+		expect(sdk.tasksRead).toHaveBeenCalledTimes(1)
+		expect(observer.getCurrentResult().data?.time_tracking).toMatchObject({tracked_seconds: 3600, running_timers: 0})
+		expect(client.getQueryState(taskKeys.detail(1))?.isInvalidated).toBe(false)
+	} finally {
+		unsubscribe()
+	}
 })
