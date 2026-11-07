@@ -185,6 +185,36 @@ test.describe('Project View Kanban', () => {
 		await expect(page.locator('.kanban .bucket .title').filter({hasText: buckets[1].title})).toBeVisible()
 	})
 
+	test('Compact time budget appears beside the card number only when estimated', async ({authenticatedPage: page, apiContext, userToken}) => {
+		const [task] = await createTaskWithBuckets(buckets)
+		const headers = {Authorization: `Bearer ${userToken}`}
+		await page.goto('/projects/1/4')
+		const card = page.locator(`[data-task-id="${task.id}"]`).first()
+		const badge = card.locator('.task-id [data-cy="timeBudgetStatus"]')
+		await expect(card).toBeVisible()
+		await expect(badge).toHaveCount(0)
+		const end = new Date()
+		const entry = await apiContext.post('/api/v2/time-entries', {headers, data: {
+			task_id: task.id, start_time: new Date(end.getTime() - 7200000).toISOString(), end_time: end.toISOString(),
+		}})
+		expect(entry.ok()).toBeTruthy()
+		for (const [seconds, text, color] of [[18000, '2/5h', 'success'], [3600, '2/1h', 'danger']] as const) {
+			const updated = await apiContext.put(`/api/v2/tasks/${task.id}`, {headers, data: {title: task.title, time_estimate_seconds: seconds}})
+			expect(updated.ok(), await updated.text()).toBeTruthy()
+			await page.reload()
+			await expect(badge).toHaveText(text)
+			await expect(badge).toHaveAttribute('data-status', color)
+			await expect(badge).toHaveAttribute('title', /Task total: 2 h/)
+			const bounds = await badge.boundingBox()
+			expect(bounds?.height).toBeLessThan(25)
+		}
+		const cleared = await apiContext.put(`/api/v2/tasks/${task.id}`, {headers, data: {title: task.title, time_estimate_seconds: 0}})
+		expect(cleared.ok()).toBeTruthy()
+		await page.reload()
+		await expect(card).toBeVisible()
+		await expect(badge).toHaveCount(0)
+	})
+
 	test('In-progress bucket starts and leaving it stops the mover timer', async ({authenticatedPage: page, apiContext, userToken}) => {
 		buckets = await BucketFactory.create(3, {project_view_id: 4})
 		const [task] = await createTaskWithBuckets(buckets)

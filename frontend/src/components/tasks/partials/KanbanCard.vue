@@ -31,6 +31,7 @@
 						variant="small"
 					/>
 					{{ getTaskIdentifier(task) }}
+					<TaskTimeBudgetBadge :task="task" />
 					<span
 						v-if="showTaskPosition"
 						class="tw:text-red-600 tw:ps-2"
@@ -128,6 +129,7 @@ import {useRouter} from 'vue-router'
 
 import {useGlobalNow} from '@/composables/useGlobalNow'
 
+import TaskTimeBudgetBadge from '@/components/time-tracking/TaskTimeBudgetBadge.vue'
 import PriorityLabel from '@/components/tasks/partials/PriorityLabel.vue'
 import ProgressBar from '@/components/misc/ProgressBar.vue'
 import Done from '@/components/misc/Done.vue'

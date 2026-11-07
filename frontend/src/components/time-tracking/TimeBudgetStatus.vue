@@ -1,15 +1,23 @@
 <template>
-	<div
+	<component
+		:is="compact ? 'span' : 'div'"
 		v-if="estimate > 0 && summary"
 		v-cy="'timeBudgetStatus'"
 		class="time-budget-status"
-		:class="`has-text-${status}`"
+		:class="[`has-text-${status}`, {'is-compact': compact}]"
+		:title="compact ? description : undefined"
+		:aria-label="compact ? description : undefined"
 		:data-status="status"
 		role="status"
 	>
-		<div>{{ $t('timeTracking.budget.total', {spent: hours(spent), estimated: hours(estimate)}) }}</div>
-		<div>{{ $t(spent > estimate ? 'timeTracking.budget.exceeded' : 'timeTracking.budget.remaining', {hours: hours(Math.abs(estimate - spent))}) }}</div>
-	</div>
+		<template v-if="compact">
+			{{ hours(spent) }}/{{ hours(estimate) }}h
+		</template>
+		<template v-else>
+			<div>{{ $t('timeTracking.budget.total', {spent: hours(spent), estimated: hours(estimate)}) }}</div>
+			<div>{{ $t(spent > estimate ? 'timeTracking.budget.exceeded' : 'timeTracking.budget.remaining', {hours: hours(Math.abs(estimate - spent))}) }}</div>
+		</template>
+	</component>
 </template>
 
 <script setup lang="ts">
@@ -19,8 +27,8 @@ import {useI18n} from 'vue-i18n'
 import {serverNowSeconds} from '@/helpers/serverClock'
 import type {Task} from '@/client/generated'
 
-const props = defineProps<{task?: Task}>()
-const {locale} = useI18n()
+const props = defineProps<{task?: Task, compact?: boolean}>()
+const {locale, t} = useI18n()
 const now = useNow({interval: 1000})
 const estimate = computed(() => props.task?.time_estimate_seconds ?? 0)
 const summary = computed(() => props.task?.time_tracking)
@@ -33,7 +41,17 @@ const spent = computed(() => {
 	return (value.tracked_seconds ?? 0) + elapsed * (value.running_timers ?? 0)
 })
 const status = computed(() => spent.value > estimate.value ? 'danger' : spent.value >= estimate.value * 0.8 ? 'warning' : 'success')
+const description = computed(() => `${t('timeTracking.budget.total', {spent: hours(spent.value), estimated: hours(estimate.value)})}. ${t(spent.value > estimate.value ? 'timeTracking.budget.exceeded' : 'timeTracking.budget.remaining', {hours: hours(Math.abs(estimate.value - spent.value))})}`)
 function hours(seconds: number) {
 	return (seconds / 3600).toLocaleString(locale.value, {maximumFractionDigits: 2})
 }
 </script>
+
+<style scoped lang="scss">
+.is-compact {
+	margin-inline-start: .4rem;
+	font-size: .75rem;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+</style>
