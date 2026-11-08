@@ -45,7 +45,11 @@
 					class="due-date"
 				>
 					<span class="icon">
-						<Icon :icon="['far', 'calendar-alt']" />
+						<OverdueIndicator v-if="isOverdue" />
+						<Icon
+							v-else
+							:icon="['far', 'calendar-alt']"
+						/>
 					</span>
 					<time :datetime="formatISO(task.due_date)">
 						{{ formatDisplayDate(task.due_date) }}
@@ -131,6 +135,7 @@ import {useGlobalNow} from '@/composables/useGlobalNow'
 
 import TaskTimeBudgetBadge from '@/components/time-tracking/TaskTimeBudgetBadge.vue'
 import PriorityLabel from '@/components/tasks/partials/PriorityLabel.vue'
+import OverdueIndicator from '@/components/tasks/partials/OverdueIndicator.vue'
 import ProgressBar from '@/components/misc/ProgressBar.vue'
 import Done from '@/components/misc/Done.vue'
 import Labels from '@/components/tasks/partials/Labels.vue'

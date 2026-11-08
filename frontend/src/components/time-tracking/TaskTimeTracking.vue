@@ -85,8 +85,8 @@ import PaginationEmit from '@/components/misc/PaginationEmit.vue'
 import TimeEntryForm from '@/components/time-tracking/TimeEntryForm.vue'
 import TimeEntryList from '@/components/time-tracking/TimeEntryList.vue'
 
-import {useTimeEntries} from '@/composables/useTimeTracking'
-import {useDeleteTimeEntryMutation} from '@/client/queries/timeEntries'
+import {useElapsed, useTimeEntries, useTimeTracking} from '@/composables/useTimeTracking'
+import {useDeleteTimeEntryMutation, useStopTimerMutation} from '@/client/queries/timeEntries'
 
 import type {TimeEntryResponse as ITimeEntry} from '@/client/queries/timeEntries'
 
@@ -117,6 +117,10 @@ async function saveEstimate() {
 const currentPage = ref(1)
 const {entries, totalPages} = useTimeEntries(() => `task_id = ${props.taskId}`, {page: currentPage})
 const deleteMutation = useDeleteTimeEntryMutation()
+const stopMutation = useStopTimerMutation()
+const {activeTimer} = useTimeTracking()
+const runningTimer = computed(() => activeTimer.value?.task_id === props.taskId ? activeTimer.value : null)
+const elapsed = useElapsed(() => runningTimer.value?.start_time)
 const editingEntry = ref<ITimeEntry | null>(null)
 const showForm = ref(false)
 
@@ -130,6 +134,12 @@ const formVisible = computed(() => entries.value.length === 0 || showForm.value 
 function onSaved() {
 	editingEntry.value = null
 	showForm.value = false
+}
+
+function stop() {
+	if (!stopMutation.isPending.value) {
+		stopMutation.mutate(undefined)
+	}
 }
 
 async function onDelete(entry: ITimeEntry) {
@@ -157,5 +167,33 @@ async function onDelete(entry: ITimeEntry) {
 	&.is-active svg {
 		transform: rotate(45deg);
 	}
+}
+
+.running-timer {
+	display: flex;
+	align-items: center;
+	gap: .5rem;
+	margin-block-end: 1rem;
+}
+
+.running-timer__info {
+	min-inline-size: 0;
+}
+
+.running-timer__elapsed {
+	margin-inline-start: .5rem;
+	color: var(--primary);
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+}
+
+.running-timer__comment {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.running-timer__stop {
+	margin-inline-start: auto;
 }
 </style>
