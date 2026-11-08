@@ -28,6 +28,7 @@ const RUNNING = {
 const sdk = vi.hoisted(() => ({
 	running: null as Record<string, unknown> | null,
 	timeEntriesList: vi.fn(),
+	tasksRead: vi.fn(async ({path}: {path: {task: number}}) => ({data: {id: path.task, time_estimate_seconds: 0}})),
 	timeEntriesTimerStop: vi.fn(),
 }))
 
@@ -70,6 +71,7 @@ async function mountFor(taskId: number) {
 			},
 			stubs: {
 				TimeEntryForm: true,
+				TimeBudgetStatus: true,
 				TimeEntryList: true,
 				PaginationEmit: true,
 				XButton: {

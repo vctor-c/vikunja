@@ -874,21 +874,11 @@ const activeSections: Record<SectionType, boolean> = reactive({
 	timeTracking: false,
 })
 
-function setActiveFields() {
-	// Set all active fields based on values in the model
-	activeFields.assignees = (task.value.assignees?.length ?? 0) > 0
-	activeFields.attachments = (task.value.attachments?.length ?? 0) > 0
-	activeFields.timeTracking = (task.value.time_entries_count ?? 0) > 0 || (task.value.time_estimate_seconds ?? 0) > 0
-	activeFields.dueDate = Boolean(parseDateOrNull(task.value.due_date))
-	activeFields.endDate = Boolean(parseDateOrNull(task.value.end_date))
-	activeFields.labels = (task.value.labels?.length ?? 0) > 0
-	activeFields.percentDone = (task.value.percent_done ?? 0) > 0
-	activeFields.priority = task.value.priority !== PRIORITIES.UNSET
-	activeFields.relatedTasks = Object.keys(task.value.related_tasks ?? {}).length > 0
-	activeFields.reminders = (task.value.reminders?.length ?? 0) > 0
-	activeFields.repeatAfter = (task.value.repeat_after ?? 0) > 0
-		|| task.value.repeat_mode !== TASK_REPEAT_MODES.REPEAT_MODE_DEFAULT
-	activeFields.startDate = Boolean(parseDateOrNull(task.value.start_date))
+// Only reveals sections: a save must not hide one the user just opened.
+function revealSectionsWithData() {
+	activeSections.attachments ||= hasAttachments.value
+	activeSections.timeTracking ||= (task.value.time_entries_count ?? 0) > 0 || (task.value.time_estimate_seconds ?? 0) > 0
+	activeSections.relatedTasks ||= Object.keys(task.value.related_tasks ?? {}).length > 0
 }
 
 function resetSections() {

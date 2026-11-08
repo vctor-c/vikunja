@@ -126,7 +126,11 @@ func TestProjectDuplicate(t *testing.T) {
 		_, err := s.ID(4).Cols("in_progress_bucket_id").Update(&ProjectView{InProgressBucketID: 2})
 		require.NoError(t, err)
 		duplicate := &ProjectDuplicate{ProjectID: 1}
-		require.NoError(t, duplicate.Create(s, &user.User{ID: 1}))
+		u := &user.User{ID: 1}
+		can, err := duplicate.CanCreate(s, u)
+		require.NoError(t, err)
+		require.True(t, can)
+		require.NoError(t, duplicate.Create(s, u))
 		view := &ProjectView{}
 		found, err := s.Where("project_id = ? AND view_kind = ?", duplicate.Project.ID, ProjectViewKindKanban).Get(view)
 		require.NoError(t, err)

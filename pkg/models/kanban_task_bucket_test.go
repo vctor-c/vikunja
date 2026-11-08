@@ -737,6 +737,8 @@ func TestTaskBucket_AutomaticTimer(t *testing.T) {
 	})
 	t.Run("link shares never affect a user's timer", func(t *testing.T) {
 		s := setup(t)
+		beforeCount, err := s.Count(&TimeEntry{})
+		require.NoError(t, err)
 		view, err := GetProjectViewByIDAndProject(s, 4, 1)
 		require.NoError(t, err)
 		require.NoError(t, updateTimerForBucketMove(s, &LinkSharing{ID: 1}, view, 1, 2, 3))
@@ -746,7 +748,7 @@ func TestTaskBucket_AutomaticTimer(t *testing.T) {
 		assert.Nil(t, entry.EndTime)
 		count, err := s.Count(&TimeEntry{})
 		require.NoError(t, err)
-		assert.Equal(t, int64(4), count)
+		assert.Equal(t, beforeCount, count)
 	})
 	t.Run("repeating tasks stop the timer before returning to backlog", func(t *testing.T) {
 		s := setup(t)

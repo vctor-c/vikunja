@@ -65,6 +65,13 @@
 							>
 								{{ row.taskIdentifier }}{{ row.taskTitle ? ` - ${row.taskTitle}` : '' }}
 							</RouterLink>
+							<span
+								v-else-if="row.entry.in_trash"
+								v-cy="'timeEntryInTrash'"
+								class="tag"
+							>
+								{{ $t('trash.inTrash') }}
+							</span>
 							<TimeBudgetStatus :task="row.task" />
 						</td>
 						<td class="nowrap">

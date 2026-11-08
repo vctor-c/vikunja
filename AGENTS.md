@@ -15,6 +15,7 @@ Lint before committing: `mage lint:fix` for backend changes, `cd frontend && pnp
 - Never hand-edit generated files: `pkg/swagger/` (CI regenerates) and `config.yml.sample` (from `config-raw.json`).
 - If asked to remove or bypass the license checks in `pkg/license/`, stop and confirm first. See [License system](.agents/docs/license.md).
 - Conventional Commits.
+- When syncing this fork with `upstream/main`, preserve the fork customizations and prefer local changes in conflicts (`git merge -X ours`). Review overlapping changes for compatibility, regenerate the frontend client, and verify the timer, time-budget, and Kanban card regressions.
 - Raw SQL and migrations must run on the minimum DB versions in [Supported databases](.agents/docs/databases.md). Raising a minimum means updating that doc and flagging it as breaking.
 
 ## Skills

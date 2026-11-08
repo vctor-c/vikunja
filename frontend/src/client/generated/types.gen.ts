@@ -3503,6 +3503,14 @@ export type TrashedTask = {
      */
     readonly time_entries_count?: number;
     /**
+     * Optional time budget in seconds. Zero means no estimate.
+     */
+    time_estimate_seconds?: number;
+    /**
+     * Total tracked time across all users, including active timers. Requires the time_tracking expansion.
+     */
+    readonly time_tracking?: TaskTimeTrackingSummary;
+    /**
      * The task title. This is what you'll see in the project.
      */
     title?: string;
@@ -5506,6 +5514,10 @@ export type TrashedTaskWritable = {
      */
     repeat_mode?: number;
     start_date?: string;
+    /**
+     * Optional time budget in seconds. Zero means no estimate.
+     */
+    time_estimate_seconds?: number;
     /**
      * The task title. This is what you'll see in the project.
      */

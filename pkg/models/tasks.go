@@ -1522,6 +1522,9 @@ func (t *Task) updateSingleTaskInViews(s *xorm.Session, a web.Auth, fields []str
 		}
 	}
 
+	if err := validateTaskLimits(t, &ot); err != nil {
+		return err
+	}
 	if t.TimeEstimateSeconds < 0 {
 		return InvalidFieldErrorWithMessage([]string{"time_estimate_seconds"}, "Time estimate must not be negative")
 	}

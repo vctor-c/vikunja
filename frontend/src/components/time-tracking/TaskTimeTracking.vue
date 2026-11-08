@@ -47,6 +47,35 @@
 			:task="task"
 			class="mbe-4"
 		/>
+		<div
+			v-if="runningTimer"
+			v-cy="'taskRunningTimer'"
+			class="running-timer"
+		>
+			<div class="running-timer__info">
+				<div>
+					<span class="has-text-grey">{{ $t('timeTracking.running') }}</span>
+					<span class="running-timer__elapsed">{{ elapsed }}</span>
+				</div>
+				<div
+					v-if="runningTimer.comment"
+					class="running-timer__comment has-text-grey"
+				>
+					{{ runningTimer.comment }}
+				</div>
+			</div>
+			<XButton
+				v-cy="'stopTaskTimer'"
+				class="running-timer__stop"
+				variant="secondary"
+				icon="stop"
+				:shadow="false"
+				:loading="stopMutation.isPending.value"
+				@click="stop"
+			>
+				{{ $t('timeTracking.stop') }}
+			</XButton>
+		</div>
 		<TimeEntryForm
 			v-if="formVisible"
 			:task-id="taskId"
